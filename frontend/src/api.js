@@ -11,7 +11,7 @@ import { AUTH_EXPIRED_EVENT, clearSession, getToken } from "./authStore.js";
 
 /** true = pakai data contoh (src/mock.js), backend tidak dipakai. Atur lewat VITE_USE_MOCK di .env */
 export const USE_MOCK = import.meta.env.VITE_USE_MOCK === "true";
-const BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+const BASE_URL = import.meta.env.VITE_API_URL || "/api";
 
 /** Error dari API, membawa error_code supaya UI bisa menampilkan pesan yang tepat. */
 export class ApiError extends Error {

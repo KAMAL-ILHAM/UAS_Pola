@@ -6,7 +6,7 @@ export default function HomePage() {
   return (
     <>
       <section className="home-hero">
-        <h1 className="home-title">Presensi Wajah</h1>
+        <h1 className="home-title">Abseng</h1>
         <p className="lead">Sistem pencatatan kehadiran berbasis pengenalan wajah. Pilih peran Anda untuk melanjutkan.</p>
       </section>
 

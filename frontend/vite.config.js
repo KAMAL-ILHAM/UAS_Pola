@@ -1,8 +1,21 @@
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
+import fs from 'fs'
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
 
-// Port dikunci ke 5173 karena CORS di backend (main.py) hanya mengizinkan port ini dan 3000.
 export default defineConfig({
   plugins: [react()],
-  server: { port: 5173, strictPort: true },
-});
+  server: {
+    https: {
+      key: fs.readFileSync('./localhost+2-key.pem'),
+      cert: fs.readFileSync('./localhost+2.pem'),
+    },
+    host: true,
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      }
+    }
+  }
+})

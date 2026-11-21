@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Alert from "../../components/Alert.jsx";
 import AttendanceTable from "../../components/AttendanceTable.jsx";
-import BackendTodo from "../../components/BackendTodo.jsx";
 import Modal from "../../components/Modal.jsx";
 import Segmented from "../../components/Segmented.jsx";
 import { deleteAttendance, getAttendance } from "../../api.js";
@@ -11,13 +10,12 @@ import Icon from "../../components/Icon.jsx";
 const PRESETS = [
   { key: "today", label: "Hari ini" },
   { key: "yesterday", label: "Kemarin" },
-  { key: "7", label: "7 hari terakhir" },
-  { key: "30", label: "30 hari terakhir" },
+  { key: "7", label: "7 hari" },
+  { key: "30", label: "30 hari" },
   { key: "all", label: "Semua" },
-  { key: "custom", label: "Pilih rentang" },
+  { key: "custom", label: "Rentang" },
 ];
 
-/** Ubah pilihan cepat menjadi rentang [dari, sampai] (YYYY-MM-DD). String kosong = tanpa batas. */
 function rangeFor(preset, dari, sampai) {
   const today = todayISO();
   switch (preset) {
@@ -38,7 +36,6 @@ function rangeFor(preset, dari, sampai) {
   }
 }
 
-/** Admin: rekap kehadiran per rentang tanggal + filter nama + ekspor CSV + hapus catatan. */
 export default function AdminRekapPage() {
   const [preset, setPreset] = useState("7");
   const [dari, setDari] = useState(addDays(todayISO(), -6));
@@ -63,8 +60,6 @@ export default function AdminRekapPage() {
     }
     setLoading(true);
     try {
-      // Satu hari: filter di server. Rentang lain: ambil semua lalu saring di browser.
-      // TODO-BACKEND: tambah parameter dari & sampai di GET /attendance agar penyaringan dilakukan server.
       const res = await getAttendance({ tanggal: from && from === to ? from : "", nama: namaQuery });
       setRows(
         res.data.filter((r) => {
@@ -93,41 +88,154 @@ export default function AdminRekapPage() {
 
   return (
     <>
-      <h1>Rekap Kehadiran</h1>
-      <p className="lead">Lihat kehadiran per hari atau rentang tanggal, lalu unduh sebagai CSV.</p>
+      <style>{`
+        .rekap-spin {
+          width: 14px;
+          height: 14px;
+          border: 2px solid currentColor;
+          border-top-color: transparent;
+          border-radius: 50%;
+          animation: rekapSpin 0.7s linear infinite;
+          display: inline-block;
+          flex-shrink: 0;
+        }
+        .rekap-spin-light {
+          border-color: rgba(255, 255, 255, 0.35);
+          border-top-color: #ffffff;
+        }
+        @keyframes rekapSpin {
+          to { transform: rotate(360deg); }
+        }
 
-      <BackendTodo>
-        Penyaringan rentang tanggal saat ini dilakukan di browser setelah mengambil semua data. Tambahkan parameter dari/sampai di
-        GET /attendance (dan pagination bila data besar). Tombol Hapus memakai DELETE /attendance/&#123;id&#125; yang belum ada.
-      </BackendTodo>
+        @media (max-width: 640px) {
+          .rekap-head h1 {
+            font-size: 1.4rem;
+          }
+          .rekap-head .lead {
+            font-size: 0.88rem;
+          }
 
-      <div className="toolbar">
+          /* Susun 6 pilihan periode jadi grid 3x2 agar pas di layar HP */
+          .rekap-segmented {
+            width: 100%;
+            margin-bottom: 0.5rem !important;
+          }
+          .rekap-segmented .segmented {
+            display: grid !important;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.3rem;
+            width: 100%;
+          }
+          .rekap-segmented .segmented button {
+            width: 100%;
+            padding: 0.45rem 0.35rem;
+            font-size: 0.8rem;
+            justify-content: center;
+          }
+
+          /* Toolbar filter & tombol aksi dibuat grid 2 kolom agar ringkas */
+          .rekap-toolbar {
+            display: grid !important;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.6rem !important;
+            align-items: end !important;
+          }
+          .rekap-toolbar .rekap-date-item {
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 0.25rem;
+            width: 100%;
+          }
+          .rekap-toolbar .rekap-date-item span {
+            font-size: 0.78rem;
+            opacity: 0.8;
+          }
+          .rekap-toolbar .rekap-search-item {
+            grid-column: 1 / -1;
+            width: 100%;
+          }
+          .rekap-toolbar .rekap-search-item span {
+            display: none;
+          }
+          .rekap-toolbar input {
+            width: 100%;
+            min-height: 38px;
+            font-size: 0.86rem;
+          }
+          .rekap-toolbar .btn {
+            width: 100%;
+            min-height: 38px;
+            font-size: 0.83rem;
+            justify-content: center;
+            padding: 0.45rem 0.6rem;
+          }
+
+          /* Kartu tabel rekap */
+          .rekap-card {
+            padding: 1rem !important;
+          }
+          .rekap-card-head {
+            flex-direction: column;
+            align-items: flex-start !important;
+            gap: 0.25rem;
+            margin-bottom: 0.85rem;
+          }
+          .rekap-card-head h2 {
+            font-size: 1.02rem;
+            margin: 0;
+          }
+          .rekap-card-head .muted {
+            font-size: 0.8rem;
+          }
+
+          /* Modal hapus di mobile */
+          .rekap-modal-actions {
+            display: grid !important;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+          }
+          .rekap-modal-actions .btn {
+            width: 100%;
+            justify-content: center;
+          }
+        }
+      `}</style>
+
+      <div className="page-head rekap-head">
+        <div>
+          <h1>Rekap Kehadiran</h1>
+          <p className="lead">Lihat kehadiran per hari atau rentang tanggal, lalu unduh sebagai CSV.</p>
+        </div>
+      </div>
+
+      <div className="toolbar rekap-segmented">
         <Segmented label="Pilih periode" options={PRESETS} value={preset} onChange={setPreset} />
       </div>
-      <div className="toolbar">
+      <div className="toolbar rekap-toolbar">
         {preset === "custom" && (
           <>
-            <label className="field-inline">
+            <label className="field-inline rekap-date-item">
               <span>Dari</span>
               <input type="date" value={dari} max={todayISO()} onChange={(e) => setDari(e.target.value)} />
             </label>
-            <label className="field-inline">
+            <label className="field-inline rekap-date-item">
               <span>Sampai</span>
               <input type="date" value={sampai} max={todayISO()} onChange={(e) => setSampai(e.target.value)} />
             </label>
           </>
         )}
-        <label className="field-inline">
+        <label className="field-inline rekap-search-item">
           <span>Nama</span>
-          <input type="search" placeholder="Cari nama..." value={nama} onChange={(e) => setNama(e.target.value)} />
+          <input type="search" placeholder="Cari nama mahasiswa..." value={nama} onChange={(e) => setNama(e.target.value)} />
         </label>
-        <button type="button" className="btn btn-secondary" onClick={load} disabled={loading}>
-          <Icon name="refresh" />
-          {loading ? "Memuat..." : "Muat ulang"}
+        <button type="button" className="btn btn-secondary" onClick={load} disabled={loading} style={{ gap: "0.4rem" }}>
+          {loading ? <span className="rekap-spin" aria-hidden="true" /> : <Icon name="refresh" />}
+          <span>{loading ? "Memuat..." : "Muat ulang"}</span>
         </button>
-        <button type="button" className="btn btn-primary" onClick={exportCSV} disabled={rows.length === 0}>
+        <button type="button" className="btn btn-primary" onClick={exportCSV} disabled={rows.length === 0} style={{ gap: "0.4rem" }}>
           <Icon name="download" />
-          Ekspor CSV
+          <span>Ekspor CSV</span>
         </button>
       </div>
 
@@ -143,8 +251,8 @@ export default function AdminRekapPage() {
         </Alert>
       )}
 
-      <section className="card">
-        <div className="card-head">
+      <section className="card rekap-card">
+        <div className="card-head rekap-card-head">
           <h2>
             {rows.length} catatan dari {uniqueStudents} mahasiswa
           </h2>
@@ -174,7 +282,6 @@ export default function AdminRekapPage() {
   );
 }
 
-/** Dialog konfirmasi hapus satu catatan kehadiran. */
 function DeleteRecordDialog({ row, onClose, onDeleted }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -199,16 +306,17 @@ function DeleteRecordDialog({ row, onClose, onDeleted }) {
           {info.hint}
         </Alert>
       )}
-      <p>
+      <p style={{ fontSize: "0.92rem", lineHeight: 1.5 }}>
         Catatan kehadiran <strong>{row.nama}</strong> pada {formatDate(row.timestamp)} akan dihapus. Gunakan hanya untuk
         memperbaiki kesalahan pencatatan.
       </p>
-      <div className="modal-actions">
-        <button type="button" className="btn btn-secondary" onClick={onClose}>
+      <div className="modal-actions rekap-modal-actions">
+        <button type="button" className="btn btn-secondary" onClick={onClose} disabled={busy}>
           Batal
         </button>
-        <button type="button" className="btn btn-danger" onClick={confirm} disabled={busy}>
-          {busy ? "Menghapus..." : "Ya, hapus"}
+        <button type="button" className="btn btn-danger" onClick={confirm} disabled={busy} style={{ gap: "0.45rem" }}>
+          {busy && <span className="rekap-spin rekap-spin-light" aria-hidden="true" />}
+          <span>{busy ? "Menghapus..." : "Ya, hapus"}</span>
         </button>
       </div>
     </Modal>

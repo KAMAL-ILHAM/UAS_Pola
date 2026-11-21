@@ -9,3 +9,5 @@ ml/data/
 dataset/
 *.pkl
 .pytest_cache/
+
+*.pem

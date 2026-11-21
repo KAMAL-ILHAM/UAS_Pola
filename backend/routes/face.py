@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, File, Form, UploadFile
 from sqlalchemy.orm import Session
 
 import face_service
+import settings_service
 from attendance_service import mark_today
 from database import get_db
 from errors import AppError
@@ -44,7 +45,6 @@ async def register(
             image = await read_image(file)
             encodings.append(face_service.get_encoding(image))
         except AppError as e:
-            # sebutkan foto ke berapa yang bermasalah supaya mudah diulang
             raise AppError(e.status_code, e.error_code, f"Foto ke-{i}: {e.message}")
 
     student = Student(nama=nama, nim=nim, encoding=json.dumps(encodings))
@@ -57,14 +57,9 @@ async def register(
 @router.post("/recognize", response_model=ApiResponse)
 async def recognize(
     foto: UploadFile = File(...),
-    _admin: Admin = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    """Kenali wajah lalu catat kehadiran (mode kiosk, HANYA admin).
-
-    Mahasiswa memakai POST /auth/face-login lalu POST /me/attendance. Endpoint ini dibatasi
-    admin supaya tidak ada yang bisa absen tanpa login. Satu mahasiswa hanya tercatat sekali per hari.
-    """
+    """Kenali wajah lalu catat kehadiran (mode kiosk presensi). Satu mahasiswa hanya tercatat sekali per hari."""
     image = await read_image(foto)
     encoding = face_service.get_encoding(image)
 
@@ -81,6 +76,7 @@ async def recognize(
         "nama": student.nama,
         "nim": student.nim,
         "distance": match["distance"],
+        "threshold": settings_service.get_threshold(),
         "already_recorded": already,
         "timestamp": record.timestamp,
         "status": record.status,
